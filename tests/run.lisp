@@ -32,6 +32,17 @@
 (clear-all)
 (define-model reach-test (sgp :v nil :esc t :randomize-time nil))
 
+;; Python wrappers use these dispatcher commands, not direct Lisp evaluation.
+(check-reach (second (multiple-value-list
+                       (evaluate-act-r-command "configure-reach-limb" "right-hand"
+                                               '(1 2 3) 0 .2d0)))
+             "remote configure command")
+(check-reach (equalp (second (multiple-value-list
+                              (evaluate-act-r-command "reach-position" "right-hand")))
+                    '(1 2 3)) "remote position command")
+(check-reach (equalp (gethash 'right-hand (reach-state-profiles (current-reach-state)))
+                    '(0d0 .2d0)) "remote zero intercept preserved")
+
 ;; Use real buffer requests, preparation, execution, and command monitoring.
 (defun request-test-reach (limb x y z width)
   (module-request 'manual

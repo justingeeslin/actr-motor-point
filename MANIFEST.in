@@ -1,0 +1,3 @@
+include motor-reach.lisp
+recursive-include examples *.lisp
+recursive-include tests *.lisp *.py

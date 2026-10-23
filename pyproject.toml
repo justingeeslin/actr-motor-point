@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "actr-motor-point"
+version = "1.0.0"
+description = "ACT-R spatial reaching with Fitts' law for hands and feet"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/justingeeslin/actr-motor-point"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+actr_motor_point = ["*.lisp"]

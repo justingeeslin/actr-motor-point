@@ -10,13 +10,97 @@ Stock ACT-R supports keyboard actions and mouse/cursor pointing. This extension
 adds a physical spatial coordinate system, including depth and feet; it does not
 replace the stock motor module or require changes to ACT-R source.
 
+## Install as a Python dependency
+
+Python 3.9+ is supported. The package bundles the Lisp implementation and a
+small Python API; ACT-R itself and its official `actr.py` interface remain
+external prerequisites. Installing or importing this package does not start or
+connect to ACT-R. No unrelated PyPI package named `actr` is installed.
+
+From this checkout:
+
+```sh
+python -m pip install /path/to/actr-motor-point
+# Or, for development:
+python -m pip install -e /path/to/actr-motor-point
+```
+
+Once these changes are committed and pushed to the repository, another project's
+`requirements.txt` can contain:
+
+```text
+actr-motor-point @ git+https://github.com/justingeeslin/actr-motor-point.git@COMMIT_SHA
+```
+
+Replace `COMMIT_SHA` with a real commit containing the package. Pinning the commit
+makes installation reproducible. In that project's `pyproject.toml`, use:
+
+```toml
+[project]
+dependencies = [
+  "actr-motor-point @ git+https://github.com/justingeeslin/actr-motor-point.git@COMMIT_SHA",
+]
+```
+
+For a private repository, use your existing Git authentication. This package has
+not been published to PyPI; `pip install actr-motor-point` alone is not yet an
+installation route. You can also distribute the wheel directly:
+
+```sh
+python -m pip wheel . --no-deps --wheel-dir dist
+python -m pip install /path/to/actr_motor_point-1.0.0-py3-none-any.whl
+```
+
+Use it with an already running ACT-R server and your existing Python interface:
+
+```python
+import actr  # official ACT-R tutorial/python/actr.py, already on your Python path
+import actr_motor_point as reaching
+
+# Once per ACT-R server startup, BEFORE loading/defining models:
+reaching.load(actr=actr)
+actr.load_act_r_model("/absolute/path/to/your-model.lisp")
+actr.reset()
+reaching.configure_limb(
+    "right-hand", position=[0, 0, 0], a=0.05, b=0.10, actr=actr
+)
+actr.run(10)
+print(reaching.position("right-hand", actr=actr))
+```
+
+Requests inside the model use `+manual> isa reach` as documented below. Reapply
+configuration after every `actr.reset()`. With multiple models, select a model
+through your ACT-R interface before configuring or reading a limb. You may omit
+`actr=` to lazily import the official interface. Load once at server startup;
+repeated loads redefine ACT-R modules and are not a safe per-run operation.
+
+**Remote servers and Docker:** ACT-R resolves Lisp paths on its own filesystem.
+The default loader works when Python and ACT-R share the package's filesystem.
+For a separate host or container, copy the actual bundled source into a mounted
+or remote directory and provide its path as seen by ACT-R:
+
+```python
+from pathlib import Path
+
+Path("/local/shared/motor-reach.lisp").write_text(reaching.lisp_source(), encoding="utf-8")
+# If /local/shared is mounted as /extensions in ACT-R's container:
+reaching.load(actr=actr, server_path="/extensions/motor-reach.lisp")
+```
+
+The helper does not transfer files over the ACT-R connection. Configuration and
+position access use the registered `configure-reach-limb` and `reach-position`
+remote commands. Failed server calls raise `RuntimeError`; consult ACT-R's
+warning trace for the detailed validation or connection error.
+
 ## Include in another project
 
 Use the official [ACT-R 7 distribution](https://act-r.psy.cmu.edu/software/)
 and a supported Common Lisp implementation. No additional Lisp libraries are
 needed beyond those included/required by ACT-R itself.
 
-1. Copy `motor-reach.lisp` into your project's vendor/extensions directory.
+1. Copy `src/actr_motor_point/motor-reach.lisp` into your project's
+   vendor/extensions directory. The repository-root `motor-reach.lisp` is a
+   compatibility loader that requires the checkout's `src/` directory.
 2. Load ACT-R first, then this file **once, before defining/loading any models**.
 3. Load your model. Configure limb starting positions and coefficients after
    each `reset`, before running it.
@@ -229,10 +313,29 @@ sbcl --load /path/to/quicklisp/setup.lisp --script tests/run.lisp /path/to/actr7
 ```
 
 Validated with ACT-R **7.31.4-<3489:2026-06-10>** using SBCL in a local Docker
-runtime: **95 checks passed** in Lisp-only and threaded configurations. Other
+runtime: **98 checks passed** in Lisp-only and threaded configurations. Other
 ACT-R versions and Lisp implementations have not been tested. Run the two
 configurations sequentially when sharing an ACT-R source directory because
 ACT-R rebuilds its compiled files when switching configurations.
+
+Python packaging tests (run after installing the wheel):
+
+```sh
+python -m unittest discover -s tests -p 'test_*.py'
+```
+
+Eight Python tests cover bundled resources, server paths, argument forwarding,
+lazy imports, and failed server calls. The installed wheel has also been tested
+against a fresh ACT-R server using the official Python interface, including
+loading the bundled source, configuring limbs, running the example, reading
+positions, and reset. To repeat that smoke test with your server:
+
+```sh
+python tests/remote_smoke.py /absolute/server/path/to/examples/reaching-controls.lisp
+```
+
+Use a fresh server for the smoke test; it loads the extension and replaces
+existing models with the example.
 
 ## Scope and compatibility
 
